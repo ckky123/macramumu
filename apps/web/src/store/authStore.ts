@@ -14,6 +14,7 @@ interface AuthState {
   setProfile: (profile: UserProfile | null) => void
   setLoading: (loading: boolean) => void
   reset: () => void
+  signOut: () => Promise<void>
 }
 
 export const useAuthStore = create<AuthState>()((set) => ({
@@ -41,4 +42,17 @@ export const useAuthStore = create<AuthState>()((set) => ({
       isAdmin: false,
       isLoading: false,
     }),
+
+  signOut: async () => {
+    // Import lazily to avoid circular deps
+    const { supabase } = await import('@/lib/supabase')
+    await supabase.auth.signOut()
+    set({
+      user: null,
+      session: null,
+      profile: null,
+      isAdmin: false,
+      isLoading: false,
+    })
+  },
 }))

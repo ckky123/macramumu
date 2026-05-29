@@ -125,11 +125,14 @@ export interface Order {
 
 // ─── User / Auth ─────────────────────────────────────────────────────────────
 
+export type UserRole = 'customer' | 'staff' | 'admin'
+
 export interface UserProfile {
   id: string
   email: string
   fullName?: string
   isAdmin: boolean
+  role: UserRole
   createdAt: string
 }
 

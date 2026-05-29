@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { Package, ShoppingBag, Plus, Edit2, Trash2, Eye, EyeOff, Star } from 'lucide-react'
+import { Package, ShoppingBag, Plus, Edit2, Trash2, Eye, EyeOff, Star, Users } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productService } from '@/services/productService'
 import { orderService } from '@/services/orderService'
@@ -66,14 +67,23 @@ export function AdminDashboard() {
               Welcome back, {profile?.fullName ?? 'Admin'}
             </p>
           </div>
-          {tab === 'products' && (
-            <Button
-              onClick={() => setShowProductForm(true)}
-              leftIcon={<Plus size={16} />}
+          <div className="flex items-center gap-3">
+            <Link
+              to="/admin/customers"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-sand-200 font-sans text-sm text-bark-500 hover:bg-sand-50 transition-colors"
             >
-              Add Product
-            </Button>
-          )}
+              <Users size={16} />
+              Customers
+            </Link>
+            {tab === 'products' && (
+              <Button
+                onClick={() => setShowProductForm(true)}
+                leftIcon={<Plus size={16} />}
+              >
+                Add Product
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Stats */}

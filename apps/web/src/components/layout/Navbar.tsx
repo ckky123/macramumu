@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { ShoppingBag, User, Menu, X, Settings } from 'lucide-react'
+import { ShoppingBag, User, Menu, X, Settings, Users } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useCartStore } from '@/store/cartStore'
 import { useAuthStore } from '@/store/authStore'
-import { authService } from '@/services/authService'
 
 const NAV_LINKS = [
   { to: '/shop',    label: 'Shop' },
@@ -15,11 +14,12 @@ const NAV_LINKS = [
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const itemCount = useCartStore((s) => s.getItemCount())
-  const { user, isAdmin } = useAuthStore()
+  const { user, isAdmin, signOut } = useAuthStore()
   const navigate = useNavigate()
 
   const handleSignOut = async () => {
-    await authService.signOut()
+    await signOut()
+    setMobileOpen(false)
     navigate('/')
   }
 
@@ -63,14 +63,24 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {/* Admin dashboard */}
           {isAdmin && (
-            <Link
-              to="/admin"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans font-medium text-bark-500 hover:bg-sand-100 transition-colors"
-              aria-label="Admin dashboard"
-            >
-              <Settings size={14} />
-              Dashboard
-            </Link>
+            <div className="hidden md:flex items-center gap-1">
+              <Link
+                to="/admin"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans font-medium text-bark-500 hover:bg-sand-100 transition-colors"
+                aria-label="Products dashboard"
+              >
+                <Settings size={14} />
+                Products
+              </Link>
+              <Link
+                to="/admin/customers"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-sans font-medium text-bark-500 hover:bg-sand-100 transition-colors"
+                aria-label="CRM dashboard"
+              >
+                <Users size={14} />
+                Customers
+              </Link>
+            </div>
           )}
 
           {/* Auth */}
@@ -144,18 +154,28 @@ export function Navbar() {
             </NavLink>
           ))}
           {isAdmin && (
-            <Link
-              to="/admin"
-              onClick={() => setMobileOpen(false)}
-              className="font-sans text-sm py-2 text-bark-500 flex items-center gap-2"
-            >
-              <Settings size={14} />
-              Dashboard
-            </Link>
+            <>
+              <Link
+                to="/admin"
+                onClick={() => setMobileOpen(false)}
+                className="font-sans text-sm py-2 text-bark-500 flex items-center gap-2"
+              >
+                <Settings size={14} />
+                Products
+              </Link>
+              <Link
+                to="/admin/customers"
+                onClick={() => setMobileOpen(false)}
+                className="font-sans text-sm py-2 text-bark-500 flex items-center gap-2"
+              >
+                <Users size={14} />
+                Customers
+              </Link>
+            </>
           )}
           {user ? (
             <button
-              onClick={() => { handleSignOut(); setMobileOpen(false) }}
+              onClick={handleSignOut}
               className="font-sans text-sm py-2 text-sand-400 text-left"
             >
               Sign out

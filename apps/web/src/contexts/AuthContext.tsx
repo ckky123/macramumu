@@ -27,14 +27,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = authService.onAuthStateChange(
       async (event, session) => {
-        setSession(session)
-        if (session?.user) {
-          const profile = await authService.getProfile(session.user.id)
-          setProfile(profile)
-        } else {
+        try {
+          setSession(session)
+          if (session?.user) {
+            const profile = await authService.getProfile(session.user.id)
+            setProfile(profile)
+          } else {
+            reset()
+          }
+        } catch {
           reset()
+        } finally {
+          setLoading(false)
         }
-        setLoading(false)
       }
     )
 
