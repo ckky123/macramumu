@@ -11,6 +11,7 @@ import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage'
 import { AboutPage } from '@/pages/AboutPage'
 import { ContactPage } from '@/pages/ContactPage'
+import { ProfilePage } from '@/pages/ProfilePage'
 import { AdminDashboard } from '@/pages/admin/AdminDashboard'
 import { CRMDashboard } from '@/pages/admin/CRMDashboard'
 import { NotFoundPage } from '@/pages/NotFoundPage'
@@ -30,6 +31,14 @@ export const router = createBrowserRouter([
       { path: 'signup',             element: <SignUpPage /> },
       { path: 'forgot-password',    element: <ForgotPasswordPage /> },
       { path: 'reset-password',     element: <ResetPasswordPage /> },
+      {
+        path: 'profile',
+        element: (
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        ),
+      },
       {
         path: 'admin',
         element: (

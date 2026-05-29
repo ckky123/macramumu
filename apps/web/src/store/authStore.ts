@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { supabase } from '@/lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 import type { UserProfile } from '@/types'
 
@@ -44,15 +45,7 @@ export const useAuthStore = create<AuthState>()((set) => ({
     }),
 
   signOut: async () => {
-    // Import lazily to avoid circular deps
-    const { supabase } = await import('@/lib/supabase')
+    // The onAuthStateChange listener will fire SIGNED_OUT and call reset()
     await supabase.auth.signOut()
-    set({
-      user: null,
-      session: null,
-      profile: null,
-      isAdmin: false,
-      isLoading: false,
-    })
   },
 }))

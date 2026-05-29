@@ -127,12 +127,13 @@ export const authService = {
 }
 
 function mapRowToProfile(data: Record<string, unknown>): UserProfile {
-  const role = (data.role as UserRole | null) ?? (data.is_admin ? 'admin' : 'customer')
+  const isAdmin = (data.is_admin as boolean) ?? false
+  const role = isAdmin ? 'admin' : ((data.role as UserRole) ?? 'customer')
   return {
     id: data.id as string,
     email: data.email as string,
     fullName: (data.full_name as string) ?? undefined,
-    isAdmin: (data.is_admin as boolean) ?? false,
+    isAdmin,
     role,
     createdAt: data.created_at as string,
   }
