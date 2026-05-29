@@ -13,20 +13,38 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email       TEXT NOT NULL,
   full_name   TEXT,
+  role        TEXT NOT NULL DEFAULT 'customer'
+                CHECK (role IN ('customer', 'staff', 'admin')),
   is_admin    BOOLEAN NOT NULL DEFAULT FALSE,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Auto-create profile on user signup
+-- If the email matches a pending staff invite, set role to 'staff'
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  invite_exists BOOLEAN;
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name)
+  SELECT EXISTS (
+    SELECT 1 FROM public.staff_invites
+    WHERE email = NEW.email AND accepted = FALSE
+  ) INTO invite_exists;
+
+  INSERT INTO public.profiles (id, email, full_name, role, is_admin)
   VALUES (
     NEW.id,
     NEW.email,
-    NEW.raw_user_meta_data->>'full_name'
+    NEW.raw_user_meta_data->>'full_name',
+    CASE WHEN invite_exists THEN 'staff' ELSE 'customer' END,
+    FALSE
   );
+
+  -- Mark invite as accepted
+  IF invite_exists THEN
+    UPDATE public.staff_invites SET accepted = TRUE WHERE email = NEW.email;
+  END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -35,6 +53,15 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- ─── Staff Invites ────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS public.staff_invites (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email       TEXT NOT NULL UNIQUE,
+  accepted    BOOLEAN NOT NULL DEFAULT FALSE,
+  invited_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- ─── Products ─────────────────────────────────────────────────────────────────
 
@@ -131,27 +158,36 @@ CREATE INDEX IF NOT EXISTS orders_status_idx  ON public.orders(status);
 
 -- ─── Row Level Security ───────────────────────────────────────────────────────
 
-ALTER TABLE public.profiles      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.products      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.product_images ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.orders        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orders         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.staff_invites  ENABLE ROW LEVEL SECURITY;
 
--- Profiles: users can read/update their own
+-- Profiles: users can read/update their own; admins can read all
 CREATE POLICY "profiles_select_own" ON public.profiles
-  FOR SELECT USING (auth.uid() = id);
+  FOR SELECT USING (
+    auth.uid() = id OR
+    auth.uid() IN (SELECT id FROM public.profiles WHERE is_admin = TRUE)
+  );
 
 CREATE POLICY "profiles_update_own" ON public.profiles
   FOR UPDATE USING (auth.uid() = id);
 
--- Products: anyone can read active products; only admins can write
+CREATE POLICY "profiles_admin_update" ON public.profiles
+  FOR UPDATE USING (
+    auth.uid() IN (SELECT id FROM public.profiles WHERE is_admin = TRUE)
+  );
+
+-- Products: anyone can read active products; only admins/staff can write
 CREATE POLICY "products_select_active" ON public.products
   FOR SELECT USING (is_active = TRUE OR (
-    auth.uid() IN (SELECT id FROM public.profiles WHERE is_admin = TRUE)
+    auth.uid() IN (SELECT id FROM public.profiles WHERE role IN ('admin', 'staff'))
   ));
 
 CREATE POLICY "products_admin_write" ON public.products
   FOR ALL USING (
-    auth.uid() IN (SELECT id FROM public.profiles WHERE is_admin = TRUE)
+    auth.uid() IN (SELECT id FROM public.profiles WHERE role IN ('admin', 'staff'))
   );
 
 -- Product images: same as products
@@ -160,14 +196,14 @@ CREATE POLICY "product_images_select" ON public.product_images
 
 CREATE POLICY "product_images_admin_write" ON public.product_images
   FOR ALL USING (
-    auth.uid() IN (SELECT id FROM public.profiles WHERE is_admin = TRUE)
+    auth.uid() IN (SELECT id FROM public.profiles WHERE role IN ('admin', 'staff'))
   );
 
--- Orders: users see their own; admins see all
+-- Orders: users see their own; admins/staff see all
 CREATE POLICY "orders_select_own" ON public.orders
   FOR SELECT USING (
     auth.uid() = user_id OR
-    auth.uid() IN (SELECT id FROM public.profiles WHERE is_admin = TRUE)
+    auth.uid() IN (SELECT id FROM public.profiles WHERE role IN ('admin', 'staff'))
   );
 
 CREATE POLICY "orders_insert" ON public.orders
@@ -175,6 +211,12 @@ CREATE POLICY "orders_insert" ON public.orders
 
 CREATE POLICY "orders_update_admin" ON public.orders
   FOR UPDATE USING (
+    auth.uid() IN (SELECT id FROM public.profiles WHERE role IN ('admin', 'staff'))
+  );
+
+-- Staff invites: only admins can manage
+CREATE POLICY "invites_admin_all" ON public.staff_invites
+  FOR ALL USING (
     auth.uid() IN (SELECT id FROM public.profiles WHERE is_admin = TRUE)
   );
 
@@ -187,4 +229,4 @@ CREATE POLICY "orders_update_admin" ON public.orders
 
 -- ─── Make yourself admin ─────────────────────────────────────────────────────
 -- After signing up, run this to give your account admin access:
--- UPDATE public.profiles SET is_admin = TRUE WHERE email = 'your@email.com';
+-- UPDATE public.profiles SET is_admin = TRUE, role = 'admin' WHERE email = 'ckky123@gmail.com';
